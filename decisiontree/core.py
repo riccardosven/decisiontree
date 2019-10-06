@@ -47,24 +47,24 @@ class DecisionTree:
         root_impurity = self.impurity_measure(self.targets[indices])
         best_impurity = root_impurity
         best_rule = (0, 0)
-        for feature in features:
-            for idx in indices:
+        for feature in features: # Loop over the features available for splitting
+            for idx in indices: # Loop over the possible splitting points
                 cutoff = self.data[idx][feature]
                 impurity, left, right = self._find_split(
                     indices, cutoff, feature)
-                if impurity <= best_impurity:
+                if impurity <= best_impurity: # We have found a better split, update!
                     best_impurity = impurity
                     best_rule = (feature, cutoff)
                     best_left = left
                     best_right = right
 
-        if best_impurity >= root_impurity:
+        if best_impurity >= root_impurity: # Splitting does not improve the purity of the node: make it a leaf
             return TreeLeaf(Counter(self.targets[indices]).most_common(1)[0][0])
-        else:
-            features.remove(best_rule[0])
+        else: # We can improve by splitting: recurse into subsets
+            features.remove(best_rule[0]) # Remove the currently used feature form the features available for splitting
             left = self._best_split(best_left, features)
             right = self._best_split(best_right, features)
-            return TreeNode(best_rule, left, right)
+            return TreeNode(best_rule, left, right) # Attach the subtrees to this node and return it
 
     def __str__(self):
         return str(self.root)
