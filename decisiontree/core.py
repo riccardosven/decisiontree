@@ -1,70 +1,59 @@
-"Implements a naive classification tree algorithm for numeric features"
-
-from collections import Counter
-from decisiontree.helper import TreeNode, TreeLeaf, gini_impurity
+from typing import List
+from decisiontree.helper import Datum, DecisionTreeNode, DecisionTreeLeaf, gini_impurity
 
 
 class DecisionTree:
-    "Base class for the decision tree"
+    def __init__(self, impurity_measure=gini_impurity):
+        self.tree = None
+        self._impurity = impurity_measure
 
-    def __init__(self, impurity=gini_impurity):
-        self.root = None
-        self.data = None
-        self.targets = None
-        self.impurity_measure = impurity
+    def fit(self, data: List[List[float]], labels: List[int]):
+        """Fit the decision tree based on data and labels"""
+        dataset = [Datum(point, label) for point, label in zip(data, labels)]
+        # Features available for the trainer
+        features = list(range(len(data[0])))
+        self.tree = self._train(dataset, features)
 
-    def train(self, dataset):
-        "Train the tree on data"
-        self.data = dataset[0]  # Input features
-        self.targets = dataset[1]  # Targets
-        self.root = self._best_split(
-            list(range(len(self.targets))), list(range(len(self.data[0]))))
+    def _train(self, data: List[Datum], features: List[int]):
+        """Recursive training function using `data` as input. It is allowed to use the `features` to find an optimal split"""
+        ndata = len(data)
 
-    def predict(self, points):
-        "Predict the class labels of a set of points"
-        return [self.root.predict(point) for point in points]
+        if self._impurity(data) == 0:
+            # If the impurity is zero, return a Leafnode with the correct label
+            return DecisionTreeLeaf(data[0].label)
 
-    def _find_split(self, indices, cutoff, feature):
-        "Find the split among the indices given a cutoff value and a feature"
-        left = []  # Indices where feature is lower than cutoff
-        right = []  # Indices where feature is larger than target
-        for idx in indices:
-            point = self.data[idx]
-            if point[feature] <= cutoff:
-                left.append(idx)
-            else:
-                right.append(idx)
-
-        impurity_left = self.impurity_measure(self.targets[left])
-        impurity_right = self.impurity_measure(self.targets[right])
-        impurity = (len(left) * impurity_left + len(right)
-                    * impurity_right)/len(indices)
-
-        return impurity, left, right
-
-    def _best_split(self, indices, features):
-        "Find the best splitting point of the indices among the features"
-        root_impurity = self.impurity_measure(self.targets[indices])
-        best_impurity = root_impurity
-        best_rule = (0, 0)
+        best_impurity = float("inf")
         for feature in features:
-            for idx in indices:
-                cutoff = self.data[idx][feature]
-                impurity, left, right = self._find_split(
-                    indices, cutoff, feature)
-                if impurity <= best_impurity:
-                    best_impurity = impurity
-                    best_rule = (feature, cutoff)
-                    best_left = left
-                    best_right = right
+            # Sort the data according to the values of the column `feature`
+            data.sort(key=lambda x: x.point[feature]
+                      )  # pylint: disable=cell-var-from-loop
+            for i in range(0, len(data) - 1):
+                # We split the data at the midpoint between this
+                cutoff = 0.5 * \
+                    (data[i + 1].point[feature] + data[i].point[feature])
+                # feature and the next, this means that we never
+                # have empty splits to take care of
+                left_impurity = self._impurity(data[0: i + 1])
+                right_impurity = self._impurity(data[i + 1:])
+                average_impurity = (
+                    left_impurity * i + right_impurity * (ndata - i)
+                ) / ndata
 
-        if best_impurity >= root_impurity:
-            return TreeLeaf(Counter(self.targets[indices]).most_common(1)[0][0])
-        else:
-            features.remove(best_rule[0])
-            left = self._best_split(best_left, features)
-            right = self._best_split(best_right, features)
-            return TreeNode(best_rule, left, right)
+                if average_impurity < best_impurity:
+                    best_impurity = average_impurity
+                    best_feature = feature
+                    best_split = i
+                    best_cutoff = cutoff
 
-    def __str__(self):
-        return str(self.root)
+        # Sort the data according to the chosen feature to ease splitting
+        data.sort(key=lambda x: x.point[best_feature])
+        node = DecisionTreeNode(best_feature, best_cutoff)  # New node
+        # Recursively train on the splitted dataset
+        node.left = self._train(data[0: best_split + 1], features)
+        node.right = self._train(data[best_split + 1:], features)
+
+        return node
+
+    def predict(self, sample: List[float]) -> int:
+        """Predicts the class of the sample in input"""
+        return self.tree.predict(sample)

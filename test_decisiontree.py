@@ -14,10 +14,10 @@ def test_dataset(dataset, niter=20):
         train = idx[:ntrain]
         test = idx[ntrain:]
         tree = DecisionTree()
-        tree.train((dataset.data[train, :], dataset.target[train]))
+        tree.fit(dataset.data[train, :], dataset.target[train])
 
-        predictions = tree.predict(
-            dataset.data[test, :]) == dataset.target[test]
+        predictions = np.asarray(tree.predict(
+            dataset.data[test, :]))  == dataset.target[test]
         accuracy.append(np.mean(predictions))
 
     return np.mean(accuracy)
