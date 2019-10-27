@@ -25,8 +25,7 @@ class DecisionTree:
         best_impurity = float("inf")
         for feature in features:
             # Sort the data according to the values of the column `feature`
-            data.sort(key=lambda x: x.point[feature]
-                      )  # pylint: disable=cell-var-from-loop
+            data.sort(key=lambda x: x.point[feature])  # pylint: disable=cell-var-from-loop
             for i in range(0, len(data) - 1):
                 # We split the data at the midpoint between this
                 cutoff = 0.5 * \
